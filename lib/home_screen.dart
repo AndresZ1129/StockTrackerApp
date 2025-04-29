@@ -1,16 +1,94 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart'; // Add this package in pubspec.yaml!
+import 'package:fl_chart/fl_chart.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'login_screen.dart';
+import 'api_service.dart'; // Import the StockService
+import 'stockdetail.dart';
+import 'Newfeed.dart';
+import 'watch_list.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
+  @override
+  _HomeScreenState createState() => _HomeScreenState();
+}
 
-    void _logout(BuildContext context) async {
+class _HomeScreenState extends State<HomeScreen> {
+  late StockService _stockService;
+  Future<StockData>? _stockData;
+  late TextEditingController _searchController;
+  List<String> _watchlist = [];
+
+   int _selectedIndex = 0;
+
+  
+  @override
+  void initState() {
+    super.initState();
+    _stockService = StockService();
+    _searchController = TextEditingController();
+    _loadWatchlist();
+  }
+
+  // Method to handle the bottom navigation bar tap
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+   // Build the page based on selected index dynamically
+  Widget _buildCurrentPage() {
+    switch (_selectedIndex) {
+      case 0:
+        return HomeScreen();
+      case 1:
+        return WatchlistScreen(watchlist: _watchlist);
+      case 2:
+        return NewsFeedPage(watchlist: _watchlist);
+      default:
+        return HomeScreen();
+    }
+  }
+
+  // Load watchlist from Firestore
+  _loadWatchlist() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      DocumentSnapshot doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (doc.exists) {
+        setState(() {
+          _watchlist = List<String>.from(doc['watchlist'] ?? []);
+        });
+      }
+    }
+  }
+
+  // Add stock to watchlist and update Firestore
+  _addToWatchlist(String symbol) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && !_watchlist.contains(symbol)) {
+      setState(() {
+        _watchlist.add(symbol);
+      });
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'watchlist': _watchlist,
+      }, SetOptions(merge: true));
+    }
+  }
+
+  void _logout(BuildContext context) async {
     await FirebaseAuth.instance.signOut();
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (context) => LoginScreen()),
     );
+  }
+
+  void _searchStock() {
+    setState(() {
+      _stockData = _stockService.getStockData(_searchController.text.toUpperCase());
+    });
   }
 
   @override
@@ -19,14 +97,14 @@ class HomeScreen extends StatelessWidget {
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
-        title: Text('My Portfolio', style: TextStyle(color: Color(0xFF39FF14)),),
+        title: Text('Stock Tracker', style: TextStyle(color: Color(0xFF39FF14))),
         actions: [
           IconButton(
-  icon: Icon(Icons.logout_outlined, color: Color(0xFF39FF14)),
-  onPressed: () {
-    _logout(context);
-  },
-),
+            icon: Icon(Icons.logout_outlined, color: Color(0xFF39FF14)),
+            onPressed: () {
+              _logout(context);
+            },
+          ),
         ],
       ),
       body: SingleChildScrollView(
@@ -34,7 +112,6 @@ class HomeScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Portfolio Card
             Card(
               color: Colors.blueGrey[900],
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -53,6 +130,66 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
             SizedBox(height: 20),
+            // Search Bar
+            TextField(
+              controller: _searchController,
+              style: TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Search Stock Symbol',
+                hintStyle: TextStyle(color: Colors.white70),
+                prefixIcon: Icon(Icons.search, color: Colors.white),
+                filled: true,
+                fillColor: Colors.blueGrey[800],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              onSubmitted: (_) => _searchStock(),
+            ),
+            SizedBox(height: 20),
+            _stockData == null
+            ?Text('Search for a stock to begin.', style: TextStyle(color: Colors.white))
+            // Stock Data
+            : FutureBuilder<StockData>(
+              future: _stockData,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return CircularProgressIndicator();
+                } else if (snapshot.hasError) {
+                  return Text('Error: ${snapshot.error}', style: TextStyle(color: Colors.red));
+                } else if (snapshot.hasData) {
+                  final stockData = snapshot.data!;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Stock: ${stockData.symbol}', style: TextStyle(color: Colors.white, fontSize: 20)),
+                      SizedBox(height: 10),
+                      Text('Price: \$${stockData.currentPrice.toStringAsFixed(2)}', style: TextStyle(color: Colors.white)),
+                      SizedBox(height: 10),
+                      Text('Change: ${stockData.percentChange.toStringAsFixed(2)}%', style: TextStyle(color: stockData.percentChange > 0 ? Colors.greenAccent : Colors.redAccent)),
+                      SizedBox(height: 20),
+
+                       // Button to add the stock to the watchlist
+          ElevatedButton(
+            onPressed: () {
+              _addToWatchlist(stockData.symbol);  // Call _addToWatchlist when the button is pressed
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('${stockData.symbol} added to watchlist')),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.greenAccent, // Green color for the button
+            ),
+            child: Text('Add to Watchlist'),
+          ),
+                    ],
+                  );
+                } else {
+                  return Text('No stock data available', style: TextStyle(color: Colors.white));
+                }
+              },
+            ),
 
             // Mini Chart
             Container(
@@ -88,81 +225,127 @@ class HomeScreen extends StatelessWidget {
             ),
             SizedBox(height: 20),
 
-            // Market Summary
-            Text('Market Summary', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-            SizedBox(height: 10),
-            SizedBox(
-              height: 100,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  MarketCard(title: 'AAPL', price: '\$172', change: '+2.3%'),
-                  MarketCard(title: 'GOOGL', price: '\$138', change: '+1.2%'),
-                  MarketCard(title: 'TSLA', price: '\$900', change: '-0.7%'),
-                ],
-              ),
-            ),
+          Text('Your Watchlist', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+SizedBox(height: 10),
+Column(
+  children: _watchlist.map((symbol) {
+    return FutureBuilder<StockData>(
+      future: _stockService.getStockData(symbol),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: LinearProgressIndicator(),
+          );
+        } else if (snapshot.hasError) {
+          return Text('Error loading $symbol', style: TextStyle(color: Colors.red));
+        } else if (snapshot.hasData) {
+          final stock = snapshot.data!;
+          return MarketCard(
+            symbol: stock.symbol,
+            price: stock.currentPrice,
+            change: stock.percentChange,
+            onDelete: () {
+              setState(() {
+                _watchlist.remove(symbol);
+                _updateWatchlistFirestore();
+              });
+              _updateWatchlistFirestore();
+            }, onTap: () { 
+               Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => StockDetailPage(symbol: stock.symbol)),
+    );
+             },
+          );
+        } else {
+          return SizedBox.shrink();
+        }
+      },
+    );
+  }).toList(),
+),
             SizedBox(height: 20),
-
-            // Watchlist
-            Text('Your Watchlist', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-            ListTile(
-              leading: Icon(Icons.show_chart, color: Colors.greenAccent),
-              title: Text('MSFT', style: TextStyle(color: Colors.white)),
-              subtitle: Text('Microsoft Corp.', style: TextStyle(color: Colors.white54)),
-              trailing: Text('+1.8%', style: TextStyle(color: Colors.greenAccent)),
-            ),
-            ListTile(
-              leading: Icon(Icons.show_chart, color: Colors.redAccent),
-              title: Text('AMZN', style: TextStyle(color: Colors.white)),
-              subtitle: Text('Amazon.com', style: TextStyle(color: Colors.white54)),
-              trailing: Text('-0.5%', style: TextStyle(color: Colors.redAccent)),
-            ),
           ],
         ),
       ),
+     : _buildCurrentPage(),
       bottomNavigationBar: BottomNavigationBar(
-  backgroundColor: Colors.white, // <-- White background
-  selectedItemColor: Colors.greenAccent, // <-- Selected items green
-  unselectedItemColor: Colors.black, // <-- Unselected items black
-  type: BottomNavigationBarType.fixed, // <-- Important! Prevents shifting
-  selectedFontSize: 14, // <-- Make text visible
-  unselectedFontSize: 12,
-  items: const [
-    BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
-    BottomNavigationBarItem(icon: Icon(Icons.star_border), label: 'Watchlist'),
-    BottomNavigationBarItem(icon: Icon(Icons.article_outlined), label: 'News'),
-    BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profile'),
-  ],
-),
+        backgroundColor: Colors.white,
+        selectedItemColor: Colors.greenAccent,
+        unselectedItemColor: Colors.black,
+        type: BottomNavigationBarType.fixed,
+        selectedFontSize: 14,
+        unselectedFontSize: 12,
+        currentIndex: _selectedIndex, // Set current index
+        onTap: _onItemTapped, // Handle tap
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
+          BottomNavigationBarItem(icon: Icon(Icons.star_border), label: 'Watchlist'),
+          BottomNavigationBarItem(icon: Icon(Icons.article_outlined), label: 'News'),
+          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profile'),
+        ],
+      ),
     );
+  }
+
+  // Update Firestore after watchlist modification
+  _updateWatchlistFirestore() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'watchlist': _watchlist,
+      }, SetOptions(merge: true));
+    }
   }
 }
 
 class MarketCard extends StatelessWidget {
-  final String title, price, change;
+  final String symbol;
+  final double price;
+  final double change;
+  final VoidCallback onDelete;
+  final VoidCallback onTap;
 
-  const MarketCard({required this.title, required this.price, required this.change});
+  const MarketCard({
+    required this.symbol,
+    required this.price,
+    required this.change,
+    required this.onDelete,
+    required this.onTap,
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 120,
-      margin: EdgeInsets.only(right: 12),
-      padding: EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.blueGrey[700],
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(title, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          SizedBox(height: 8),
-          Text(price, style: TextStyle(color: Colors.white)),
-          SizedBox(height: 4),
-          Text(change, style: TextStyle(color: change.startsWith('+') ? Colors.greenAccent : Colors.redAccent)),
-        ],
+    final changeColor = change >= 0 ? Colors.greenAccent : Colors.redAccent;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Card(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 4,
+        color: Colors.blueGrey.shade900,
+        margin: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Info
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(symbol, style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold)),
+                  Text('\$${price.toStringAsFixed(2)}', style: TextStyle(color: Colors.white70)),
+                  Text('${change.toStringAsFixed(2)}%', style: TextStyle(color: changeColor)),
+                ],
+              ),
+              IconButton(icon: Icon(Icons.close, color: Colors.white70), onPressed: onDelete),
+            ],
+          ),
+        ),
       ),
     );
   }
