@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'api_service.dart'; // StockService for fetching stock data
+import 'stockdetail.dart';
 
 class WatchlistScreen extends StatefulWidget {
   @override
@@ -167,6 +168,7 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
       backgroundColor: Colors.black,
       appBar: AppBar(
         title: Text('Watchlist', style: TextStyle(color: Colors.greenAccent),),
+        backgroundColor: Colors.black,
         actions: [
           IconButton(
             icon: Icon(Icons.add,
@@ -192,6 +194,14 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                 ),
                 children: unassigned.map((symbol) {
                   return ListTile(
+                    onTap: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => StockDetailPage(symbol:symbol),
+      ),
+    );
+  },
                     title: Text(symbol, style: TextStyle(color: Colors.white)),
                     trailing: IconButton(
                       icon: Icon(Icons.add, color: Colors.white),
@@ -233,6 +243,14 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                         } else if (snapshot.hasData) {
                           final stockData = snapshot.data!;
                           return ListTile(
+                             onTap: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => StockDetailPage(symbol: stockData.symbol),
+      ),
+    );
+  },
                             title: Text(
                               '${stockData.symbol}: \$${stockData.currentPrice.toStringAsFixed(2)}',
                               style: TextStyle(color: Colors.white),

@@ -7,6 +7,7 @@ import 'login_screen.dart';
 import 'api_service.dart'; // Import the StockService
 import 'stockdetail.dart';
 import 'watch_list.dart';
+import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -23,6 +24,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
    // Create a single instance of WatchlistScreen
   late WatchlistScreen _watchlistScreen;
+  late List<Widget> _screens;
 
   
   @override
@@ -32,6 +34,14 @@ class _HomeScreenState extends State<HomeScreen> {
     _searchController = TextEditingController();
     _loadWatchlist();
     _watchlistScreen = WatchlistScreen(); // Initialize once
+
+     // Initialize screens once
+  _screens = [
+    widget, // Reuse current HomeScreen instance
+    NewsFeedPage(),
+    _watchlistScreen,
+    ProfileScreen(),
+  ];
   }
 
   // Method to handle the bottom navigation bar tap
@@ -40,13 +50,6 @@ class _HomeScreenState extends State<HomeScreen> {
       _selectedIndex = index;
     });
   }
-
-  // Define your screens
-  final List<Widget> _screens = [
-    HomeScreen(),
-    NewsFeedPage(),
-  ];
-
   // Load watchlist from Firestore
   _loadWatchlist() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -259,11 +262,8 @@ Widget build(BuildContext context) {
             ),
           )
         : IndexedStack(
-        index: _selectedIndex, // The screen that corresponds to the selected index
-        children: [ 
-          ..._screens,
-          _watchlistScreen, // Add WatchlistScreen as a fixed screen
-        ], // List of screens
+        index: _selectedIndex,
+      children: _screens, // List of screens
       ),
     bottomNavigationBar: BottomNavigationBar(
       backgroundColor: Colors.white,

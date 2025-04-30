@@ -13,85 +13,219 @@ class StockDetailPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(symbol, style: TextStyle(color: Colors.greenAccent),),
+        title: Text(
+          symbol.toUpperCase(),
+          style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Color(0xFF2C6B2F),
+        iconTheme: IconThemeData(color: Colors.greenAccent),
       ),
       backgroundColor: Colors.black,
       body: FutureBuilder<StockData>(
         future: stockService.getStockData(symbol),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) return Center(child: CircularProgressIndicator());
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(child: CircularProgressIndicator(color: Colors.greenAccent));
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Text(
+                'Error loading stock data',
+                style: TextStyle(color: Colors.redAccent),
+              ),
+            );
+          }
 
           final stock = snapshot.data!;
-          return Padding(
+          return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Stock Info
-                Text('Price: \$${stock.currentPrice}', style: TextStyle(color: Colors.white, fontSize: 18)),
-                Text('Change: ${stock.percentChange.toStringAsFixed(2)}%', style: TextStyle(color: stock.percentChange >= 0 ? Colors.greenAccent : Colors.redAccent)),
-                SizedBox(height: 24),
-                // Price Chart
+                Card(
+                  color: Colors.grey[900],
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 4,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Current Price',
+                            style: TextStyle(color: Colors.grey, fontSize: 14)),
+                        Text(
+                          '\$${stock.currentPrice.toStringAsFixed(2)}',
+                          style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Change: ${stock.percentChange.toStringAsFixed(2)}%',
+                          style: TextStyle(
+                            color: stock.percentChange >= 0 ? Colors.greenAccent : Colors.redAccent,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Price History Chart
+                Text("Price History", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 12),
                 FutureBuilder<List<double>>(
                   future: stockService.getPriceHistory(symbol),
                   builder: (context, chartSnap) {
-                    if (!chartSnap.hasData) {
-                      return CircularProgressIndicator();
+                    if (chartSnap.connectionState == ConnectionState.waiting) {
+                      return Center(child: CircularProgressIndicator(color: Colors.greenAccent));
                     }
 
-                    if (chartSnap.hasError) {
-                      print('Error fetching price history: ${chartSnap.error}');
-                      return Text('Error fetching price history');
+                    if (chartSnap.hasError || !chartSnap.hasData) {
+                      return Text('Error loading chart data', style: TextStyle(color: Colors.redAccent));
                     }
 
                     final prices = chartSnap.data!;
-                    print('Price History: $prices');  // Add this line to debug
+                    final daysOfWeek = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-                    // Mock day labels
-                    List<String> daysOfWeek = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-
-                    return SizedBox(
-                      height: 200,
-                      child: LineChart(
-                        LineChartData(
-                          backgroundColor: Colors.black,
-                          titlesData: FlTitlesData(
-                            bottomTitles: AxisTitles(
-                              sideTitles: SideTitles(
-                                showTitles: true,
-                                getTitlesWidget: (value, meta) {
-                                  // Show day labels based on the X-axis value
-                                  return Text(
-                                    daysOfWeek[value.toInt()],
-                                    style: TextStyle(color: Colors.greenAccent, fontSize: 10),
-                                  );
-                                },
-                              ),
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey[900],
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Line Chart Section
+                          Text("Line Chart", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 12),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.black,
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            leftTitles: AxisTitles(
-                              sideTitles: SideTitles(
-                                showTitles: true,
-                                getTitlesWidget: (value, meta) {
-                                  return Text(
-                                    value.toStringAsFixed(2),
-                                    style: TextStyle(color: Colors.greenAccent, fontSize: 10),
-                                  );
-                                },
+                            padding: const EdgeInsets.all(12),
+                            child: SizedBox(
+                              height: 220,
+                              child: LineChart(
+                                LineChartData(
+                                  titlesData: FlTitlesData(
+                                    bottomTitles: AxisTitles(
+                                      sideTitles: SideTitles(
+                                        showTitles: true,
+                                        reservedSize: 30,
+                                        getTitlesWidget: (value, meta) {
+                                          int index = value.toInt() % daysOfWeek.length;
+                                          return Text(
+                                            daysOfWeek[index],
+                                            style: TextStyle(color: Colors.greenAccent, fontSize: 10),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                    leftTitles: AxisTitles(
+                                      sideTitles: SideTitles(
+                                        showTitles: true,
+                                        reservedSize: 40,
+                                        getTitlesWidget: (value, meta) {
+                                          return Text(
+                                            value.toStringAsFixed(2),
+                                            style: TextStyle(color: Colors.greenAccent, fontSize: 10),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                    topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                    rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                  ),
+                                  borderData: FlBorderData(show: false),
+                                  gridData: FlGridData(show: false),
+                                  lineBarsData: [
+                                    LineChartBarData(
+                                      spots: List.generate(
+                                        prices.length,
+                                        (i) => FlSpot(i.toDouble(), prices[i]),
+                                      ),
+                                      isCurved: true,
+                                      color: Colors.greenAccent,
+                                      barWidth: 2,
+                                      dotData: FlDotData(show: false),
+                                      belowBarData: BarAreaData(
+                                        show: true,
+                                        color: Colors.greenAccent.withOpacity(0.2),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                          borderData: FlBorderData(show: false),
-                          gridData: FlGridData(show: false),
-                          lineBarsData: [
-                            LineChartBarData(
-                              spots: List.generate(prices.length, (i) => FlSpot(i.toDouble(), prices[i])),
-                              isCurved: true,
-                              dotData: FlDotData(show: false),
-                              color: Colors.greenAccent,
-                              belowBarData: BarAreaData(show: true, color: Colors.greenAccent.withOpacity(0.3)),
+                          const SizedBox(height: 24), // Add spacing between the charts
+
+                          // Bar Chart Section
+                          Text("Bar Chart", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 12),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.black,
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                          ],
-                        ),
+                            padding: const EdgeInsets.all(12),
+                            child: SizedBox(
+                              height: 220,
+                              child: BarChart(
+                                BarChartData(
+                                  titlesData: FlTitlesData(
+                                    bottomTitles: AxisTitles(
+                                      sideTitles: SideTitles(
+                                        showTitles: true,
+                                        reservedSize: 30,
+                                        getTitlesWidget: (value, meta) {
+                                          int index = value.toInt() % daysOfWeek.length;
+                                          return Text(
+                                            daysOfWeek[index],
+                                            style: TextStyle(color: Colors.greenAccent, fontSize: 10),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                    leftTitles: AxisTitles(
+                                      sideTitles: SideTitles(
+                                        showTitles: true,
+                                        reservedSize: 40,
+                                        getTitlesWidget: (value, meta) {
+                                          return Text(
+                                            value.toStringAsFixed(2),
+                                            style: TextStyle(color: Colors.greenAccent, fontSize: 10),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                  borderData: FlBorderData(show: false),
+                                  gridData: FlGridData(show: false),
+                                  barGroups: List.generate(
+                                    prices.length,
+                                    (i) => BarChartGroupData(
+                                      x: i,
+                                      barRods: [
+                                        BarChartRodData(
+                                          toY: prices[i],
+                                          color: Colors.greenAccent,
+                                          width: 8,
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     );
                   },

@@ -98,7 +98,9 @@ class _NewsFeedPageState extends State<NewsFeedPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('News Feed', style: TextStyle(color: Colors.greenAccent),)),
+      appBar: AppBar(title: Text('News Feed', style: TextStyle(color: Colors.greenAccent),),
+      backgroundColor: Colors.black,
+      ),
       backgroundColor: Colors.black,
       body: _isLoading
           ? Center(child: CircularProgressIndicator())
