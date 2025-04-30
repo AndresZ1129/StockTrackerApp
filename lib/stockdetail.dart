@@ -13,7 +13,7 @@ class StockDetailPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(symbol),
+        title: Text(symbol, style: TextStyle(color: Colors.greenAccent),),
       ),
       backgroundColor: Colors.black,
       body: FutureBuilder<StockData>(
@@ -48,7 +48,7 @@ class StockDetailPage extends StatelessWidget {
                     print('Price History: $prices');  // Add this line to debug
 
                     // Mock day labels
-                    List<String> daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                    List<String> daysOfWeek = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
                     return SizedBox(
                       height: 200,

@@ -59,45 +59,4 @@ Future<List<double>> getPriceHistory(String symbol) async {
 
   return prices;
 }
-
-  // Fetch news for a specific symbol
-  Future<List<NewsArticle>> getNews(String symbol) async {
-    final now = DateTime.now();
-    final from = now.subtract(Duration(days: 7)).toIso8601String(); // 7 days ago
-    final to = now.toIso8601String(); // current date
-
-    final url = '$_baseUrl/company-news?symbol=$symbol&from=$from&to=$to&token=$_apiKey';
-    final response = await http.get(Uri.parse(url));
-
-    if (response.statusCode == 200) {
-      final List<dynamic> data = json.decode(response.body);
-      return data.map((item) => NewsArticle.fromJson(item)).toList();
-    } else {
-      throw Exception('Failed to fetch news');
-    }
-  }
-}
-
-// News article model
-class NewsArticle {
-  final String headline;
-  final String source;
-  final String url;
-  final DateTime datetime;
-
-  NewsArticle({
-    required this.headline,
-    required this.source,
-    required this.url,
-    required this.datetime,
-  });
-
-  factory NewsArticle.fromJson(Map<String, dynamic> json) {
-    return NewsArticle(
-      headline: json['headline'],
-      source: json['source'],
-      url: json['url'],
-      datetime: DateTime.fromMillisecondsSinceEpoch(json['datetime'] * 1000),
-    );
-  }
 }

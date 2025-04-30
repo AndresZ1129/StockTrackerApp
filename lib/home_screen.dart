@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'Newfeed.dart';
 import 'login_screen.dart';
 import 'api_service.dart'; // Import the StockService
 import 'stockdetail.dart';
-import 'Newfeed.dart';
 import 'watch_list.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -21,6 +21,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
    int _selectedIndex = 0;
 
+   // Create a single instance of WatchlistScreen
+  late WatchlistScreen _watchlistScreen;
+
   
   @override
   void initState() {
@@ -28,6 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _stockService = StockService();
     _searchController = TextEditingController();
     _loadWatchlist();
+    _watchlistScreen = WatchlistScreen(); // Initialize once
   }
 
   // Method to handle the bottom navigation bar tap
@@ -37,19 +41,11 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-   // Build the page based on selected index dynamically
-  Widget _buildCurrentPage() {
-    switch (_selectedIndex) {
-      case 0:
-        return HomeScreen();
-      case 1:
-        return WatchlistScreen(watchlist: _watchlist);
-      case 2:
-        return NewsFeedPage(watchlist: _watchlist);
-      default:
-        return HomeScreen();
-    }
-  }
+  // Define your screens
+  final List<Widget> _screens = [
+    HomeScreen(),
+    NewsFeedPage(),
+  ];
 
   // Load watchlist from Firestore
   _loadWatchlist() async {
@@ -90,205 +86,203 @@ class _HomeScreenState extends State<HomeScreen> {
       _stockData = _stockService.getStockData(_searchController.text.toUpperCase());
     });
   }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    backgroundColor: Colors.black,
+    appBar: AppBar(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        title: Text('Stock Tracker', style: TextStyle(color: Color(0xFF39FF14))),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.logout_outlined, color: Color(0xFF39FF14)),
-            onPressed: () {
-              _logout(context);
-            },
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Card(
-              color: Colors.blueGrey[900],
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Total Value', style: TextStyle(color: Colors.white70)),
-                    SizedBox(height: 8),
-                    Text('\$12,500', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
-                    SizedBox(height: 8),
-                    Text('+3.5% Today', style: TextStyle(color: Colors.greenAccent)),
-                  ],
-                ),
-              ),
-            ),
-            SizedBox(height: 20),
-            // Search Bar
-            TextField(
-              controller: _searchController,
-              style: TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: 'Search Stock Symbol',
-                hintStyle: TextStyle(color: Colors.white70),
-                prefixIcon: Icon(Icons.search, color: Colors.white),
-                filled: true,
-                fillColor: Colors.blueGrey[800],
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-              onSubmitted: (_) => _searchStock(),
-            ),
-            SizedBox(height: 20),
-            _stockData == null
-            ?Text('Search for a stock to begin.', style: TextStyle(color: Colors.white))
-            // Stock Data
-            : FutureBuilder<StockData>(
-              future: _stockData,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return CircularProgressIndicator();
-                } else if (snapshot.hasError) {
-                  return Text('Error: ${snapshot.error}', style: TextStyle(color: Colors.red));
-                } else if (snapshot.hasData) {
-                  final stockData = snapshot.data!;
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Stock: ${stockData.symbol}', style: TextStyle(color: Colors.white, fontSize: 20)),
-                      SizedBox(height: 10),
-                      Text('Price: \$${stockData.currentPrice.toStringAsFixed(2)}', style: TextStyle(color: Colors.white)),
-                      SizedBox(height: 10),
-                      Text('Change: ${stockData.percentChange.toStringAsFixed(2)}%', style: TextStyle(color: stockData.percentChange > 0 ? Colors.greenAccent : Colors.redAccent)),
-                      SizedBox(height: 20),
-
-                       // Button to add the stock to the watchlist
-          ElevatedButton(
-            onPressed: () {
-              _addToWatchlist(stockData.symbol);  // Call _addToWatchlist when the button is pressed
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('${stockData.symbol} added to watchlist')),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.greenAccent, // Green color for the button
-            ),
-            child: Text('Add to Watchlist'),
-          ),
-                    ],
-                  );
-                } else {
-                  return Text('No stock data available', style: TextStyle(color: Colors.white));
-                }
-              },
-            ),
-
-            // Mini Chart
-            Container(
-              height: 200,
-              decoration: BoxDecoration(
-                color: Colors.blueGrey[800],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: EdgeInsets.all(16),
-              child: LineChart(
-                LineChartData(
-                  lineBarsData: [
-                    LineChartBarData(
-                      spots: [
-                        FlSpot(0, 1),
-                        FlSpot(1, 1.5),
-                        FlSpot(2, 1.4),
-                        FlSpot(3, 3.4),
-                        FlSpot(4, 2),
-                        FlSpot(5, 2.2),
-                        FlSpot(6, 1.8),
-                      ],
-                      isCurved: true,
-                      color: Colors.greenAccent,
-                      belowBarData: BarAreaData(show: false),
-                    ),
-                  ],
-                  gridData: FlGridData(show: false),
-                  titlesData: FlTitlesData(show: false),
-                  borderData: FlBorderData(show: false),
-                ),
-              ),
-            ),
-            SizedBox(height: 20),
-
-          Text('Your Watchlist', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-SizedBox(height: 10),
-Column(
-  children: _watchlist.map((symbol) {
-    return FutureBuilder<StockData>(
-      future: _stockService.getStockData(symbol),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: LinearProgressIndicator(),
-          );
-        } else if (snapshot.hasError) {
-          return Text('Error loading $symbol', style: TextStyle(color: Colors.red));
-        } else if (snapshot.hasData) {
-          final stock = snapshot.data!;
-          return MarketCard(
-            symbol: stock.symbol,
-            price: stock.currentPrice,
-            change: stock.percentChange,
-            onDelete: () {
-              setState(() {
-                _watchlist.remove(symbol);
-                _updateWatchlistFirestore();
-              });
-              _updateWatchlistFirestore();
-            }, onTap: () { 
-               Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => StockDetailPage(symbol: stock.symbol)),
-    );
-             },
-          );
-        } else {
-          return SizedBox.shrink();
-        }
-      },
-    );
-  }).toList(),
-),
-            SizedBox(height: 20),
-          ],
+      title: Text('Stock Tracker', style: TextStyle(color: Color(0xFF39FF14))),
+      actions: [
+        IconButton(
+          icon: Icon(Icons.logout_outlined, color: Color(0xFF39FF14)),
+          onPressed: () => _logout(context),
         ),
+      ],
+    ),
+    body: _selectedIndex == 0
+        ? SingleChildScrollView(
+            padding: EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Card(
+                  color: Colors.blueGrey[900],
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Total Value', style: TextStyle(color: Colors.white70)),
+                        SizedBox(height: 8),
+                        Text('\$12,500', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+                        SizedBox(height: 8),
+                        Text('+3.5% Today', style: TextStyle(color: Colors.greenAccent)),
+                      ],
+                    ),
+                  ),
+                ),
+                SizedBox(height: 20),
+                TextField(
+                  controller: _searchController,
+                  style: TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: 'Search Stock Symbol',
+                    hintStyle: TextStyle(color: Colors.white70),
+                    prefixIcon: Icon(Icons.search, color: Colors.white),
+                    filled: true,
+                    fillColor: Colors.blueGrey[800],
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  onSubmitted: (_) => _searchStock(),
+                ),
+                SizedBox(height: 20),
+                _stockData == null
+                    ? Text('Search for a stock to begin.', style: TextStyle(color: Colors.white))
+                    : FutureBuilder<StockData>(
+                        future: _stockData,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return CircularProgressIndicator();
+                          } else if (snapshot.hasError) {
+                            return Text('Error: ${snapshot.error}', style: TextStyle(color: Colors.red));
+                          } else if (snapshot.hasData) {
+                            final stockData = snapshot.data!;
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Stock: ${stockData.symbol}', style: TextStyle(color: Colors.white, fontSize: 20)),
+                                SizedBox(height: 10),
+                                Text('Price: \$${stockData.currentPrice.toStringAsFixed(2)}', style: TextStyle(color: Colors.white)),
+                                SizedBox(height: 10),
+                                Text(
+                                  'Change: ${stockData.percentChange.toStringAsFixed(2)}%',
+                                  style: TextStyle(color: stockData.percentChange > 0 ? Colors.greenAccent : Colors.redAccent),
+                                ),
+                                SizedBox(height: 20),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    _addToWatchlist(stockData.symbol);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('${stockData.symbol} added to watchlist')),
+                                    );
+                                  },
+                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.greenAccent),
+                                  child: Text('Add to Watchlist'),
+                                ),
+                              ],
+                            );
+                          } else {
+                            return Text('No stock data available', style: TextStyle(color: Colors.white));
+                          }
+                        },
+                      ),
+                SizedBox(height: 20),
+                Container(
+                  height: 200,
+                  decoration: BoxDecoration(
+                    color: Colors.blueGrey[800],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: EdgeInsets.all(16),
+                  child: LineChart(
+                    LineChartData(
+                      lineBarsData: [
+                        LineChartBarData(
+                          spots: [
+                            FlSpot(0, 1),
+                            FlSpot(1, 1.5),
+                            FlSpot(2, 1.4),
+                            FlSpot(3, 3.4),
+                            FlSpot(4, 2),
+                            FlSpot(5, 2.2),
+                            FlSpot(6, 1.8),
+                          ],
+                          isCurved: true,
+                          color: Colors.greenAccent,
+                          belowBarData: BarAreaData(show: false),
+                        ),
+                      ],
+                      gridData: FlGridData(show: false),
+                      titlesData: FlTitlesData(show: false),
+                      borderData: FlBorderData(show: false),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 20),
+                Text('Your Watchlist', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                SizedBox(height: 10),
+                Column(
+                  children: _watchlist.map((symbol) {
+                    return FutureBuilder<StockData>(
+                      future: _stockService.getStockData(symbol),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8.0),
+                            child: LinearProgressIndicator(),
+                          );
+                        } else if (snapshot.hasError) {
+                          return Text('Error loading $symbol', style: TextStyle(color: Colors.red));
+                        } else if (snapshot.hasData) {
+                          final stock = snapshot.data!;
+                          return MarketCard(
+                            symbol: stock.symbol,
+                            price: stock.currentPrice,
+                            change: stock.percentChange,
+                            onDelete: () {
+                              setState(() {
+                                _watchlist.remove(symbol);
+                                _updateWatchlistFirestore();
+                              });
+                            },
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => StockDetailPage(symbol: stock.symbol)),
+                              );
+                            },
+                          );
+                        } else {
+                          return SizedBox.shrink();
+                        }
+                      },
+                    );
+                  }).toList(),
+                ),
+                SizedBox(height: 20),
+              ],
+            ),
+          )
+        : IndexedStack(
+        index: _selectedIndex, // The screen that corresponds to the selected index
+        children: [ 
+          ..._screens,
+          _watchlistScreen, // Add WatchlistScreen as a fixed screen
+        ], // List of screens
       ),
-     : _buildCurrentPage(),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.white,
-        selectedItemColor: Colors.greenAccent,
-        unselectedItemColor: Colors.black,
-        type: BottomNavigationBarType.fixed,
-        selectedFontSize: 14,
-        unselectedFontSize: 12,
-        currentIndex: _selectedIndex, // Set current index
-        onTap: _onItemTapped, // Handle tap
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
-          BottomNavigationBarItem(icon: Icon(Icons.star_border), label: 'Watchlist'),
-          BottomNavigationBarItem(icon: Icon(Icons.article_outlined), label: 'News'),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profile'),
-        ],
-      ),
-    );
-  }
-
+    bottomNavigationBar: BottomNavigationBar(
+      backgroundColor: Colors.white,
+      selectedItemColor: Colors.greenAccent,
+      unselectedItemColor: Colors.black,
+      type: BottomNavigationBarType.fixed,
+      selectedFontSize: 14,
+      unselectedFontSize: 12,
+      currentIndex: _selectedIndex,
+      onTap: _onItemTapped,
+      items: const [
+        BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
+        BottomNavigationBarItem(icon: Icon(Icons.article_outlined), label: 'News'),
+        BottomNavigationBarItem(icon: Icon(Icons.star_border), label: 'Watchlist'),
+        BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profile'),
+      ],
+    ),
+  );
+}
   // Update Firestore after watchlist modification
   _updateWatchlistFirestore() async {
     final user = FirebaseAuth.instance.currentUser;
