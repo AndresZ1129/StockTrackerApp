@@ -134,13 +134,47 @@ class _NewsFeedPageState extends State<NewsFeedPage> {
   }
 
   void _launchUrl(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Could not launch article')));
+    try {
+      // Ensure URL has HTTPS prefix
+      if (!url.startsWith('https://')) {
+        url =
+            url.startsWith('http://')
+                ? url.replaceFirst('http://', 'https://')
+                : 'https://' + url;
+      }
+
+      final uri = Uri.parse(url);
+      debugPrint('Launching URL: $uri'); // Debug log
+
+      // Try launching with external application mode first
+      bool launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+
+      if (!launched && mounted) {
+        // If external launch fails, try with platform default
+        launched = await launchUrl(uri, mode: LaunchMode.platformDefault);
+
+        if (!launched && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Could not open article. Please try again later.'),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error launching URL: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error opening article: Please check your internet connection',
+            ),
+          ),
+        );
+      }
     }
   }
 
