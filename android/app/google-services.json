@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "593318678335",
+    "project_id": "mad-stocktracker-app",
+    "storage_bucket": "mad-stocktracker-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:593318678335:android:d5b4e439e2fed0ce0c8d8a",
+        "android_client_info": {
+          "package_name": "com.example.stocktrackerapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDMXDqZ_MIF-cnmD9uuAFvIjfV7laPSz7c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
