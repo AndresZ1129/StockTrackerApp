@@ -86,6 +86,18 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
     _saveCategories();  // Save categories to Firestore immediately
   }
 
+  Future<void> _removeFromWatchlist(String symbol) async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user != null) {
+    setState(() {
+      _watchlist.remove(symbol);
+    });
+    await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+      'watchlist': _watchlist,
+    }, SetOptions(merge: true));
+  }
+}
+
   // Show dialog to add category
   _showAddCategoryDialog() {
     TextEditingController _categoryController = TextEditingController();
@@ -194,20 +206,31 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                 ),
                 children: unassigned.map((symbol) {
                   return ListTile(
-                    onTap: () {
+  onTap: () {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => StockDetailPage(symbol:symbol),
+        builder: (context) => StockDetailPage(symbol: symbol),
       ),
     );
   },
-                    title: Text(symbol, style: TextStyle(color: Colors.white)),
-                    trailing: IconButton(
-                      icon: Icon(Icons.add, color: Colors.white),
-                      onPressed: () => _showAssignCategoryDialog(symbol),
-                    ),
-                  );
+  title: Text(symbol, style: TextStyle(color: Colors.white)),
+  trailing: Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      IconButton(
+        icon: Icon(Icons.add, color: Colors.green),
+        onPressed: () => _showAssignCategoryDialog(symbol),
+      ),
+      IconButton(
+  icon: Icon(Icons.remove_circle_outline, color: Colors.redAccent),
+  onPressed: () => _removeFromWatchlist(symbol),
+),
+
+    ],
+  ),
+);
+
                 }).toList(),
               ),
             ),

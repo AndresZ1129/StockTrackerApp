@@ -63,19 +63,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Add stock to watchlist and update Firestore
-  _addToWatchlist(String symbol) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null && !_watchlist.contains(symbol)) {
-      setState(() {
-        _watchlist.add(symbol);
-      });
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-        'watchlist': _watchlist,
-      }, SetOptions(merge: true));
-    }
-  }
-
   void _logout(BuildContext context) async {
     await FirebaseAuth.instance.signOut();
     Navigator.pushReplacement(
@@ -89,6 +76,20 @@ class _HomeScreenState extends State<HomeScreen> {
       _stockData = _stockService.getStockData(_searchController.text.toUpperCase());
     });
   }
+
+    // Add stock to watchlist and update Firestore
+  _addToWatchlist(String symbol) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && !_watchlist.contains(symbol)) {
+      setState(() {
+        _watchlist.add(symbol);
+      });
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'watchlist': _watchlist,
+      }, SetOptions(merge: true));
+    }
+  }
+  
 @override
 Widget build(BuildContext context) {
   return Scaffold(
